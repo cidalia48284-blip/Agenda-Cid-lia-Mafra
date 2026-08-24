@@ -40,6 +40,20 @@ nav{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
 <div class="stat">A confirmar<b id="countConfirm">0</b></div>
 </div>
 <div class="card">
+<h2>💰 Resumo financeiro</h2>
+<div class="grid">
+<div><label>Dia</label><input id="financeDate" type="date"></div>
+<div><label>Mês</label><input id="financeMonth" type="month"></div>
+</div>
+<div class="stats" style="margin-top:12px">
+<div class="stat"><span class="muted">Recebido</span><b id="finReceived">R$ 0,00</b></div>
+<div class="stat"><span class="muted">30% dona</span><b id="finOwner">R$ 0,00</b></div>
+<div class="stat"><span class="muted">70% você</span><b id="finYou">R$ 0,00</b></div>
+</div>
+<div class="muted" id="finCount" style="margin-top:8px">0 atendimento(s) recebido(s).</div>
+<div class="actions"><button class="secondary" type="button" onclick="setFinanceToday()">Hoje</button><button class="secondary" type="button" onclick="clearFinance()">Limpar filtros</button></div>
+</div>
+<div class="card">
 <h2>➕ Novo atendimento</h2>
 <form id="form">
 <div class="grid">
@@ -48,7 +62,7 @@ nav{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
 <div><label>Data</label><input id="date" type="date" required></div>
 <div><label>Horário</label><input id="time" type="time" required></div>
 <div><label>Procedimento</label><select id="procedure"><option>Limpeza de pele</option><option>Dermaplaning</option><option>Design de sobrancelhas</option><option>Design + henna</option><option>Lash lifting</option><option>Extensão de cílios</option><option>Spa de sobrancelhas</option><option>Outro</option></select></div>
-<div><label>Próximo retorno</label><input id="returnDate" type="date"></div>
+<div><label>Próximo retorno</label><input id="returnDate" type="date"></div><div><label>Valor (R$)</label><input id="price" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div><div><label>Pagamento</label><select id="paymentStatus"><option value="Pendente">Pendente</option><option value="Recebido">Recebido</option></select></div>
 <div class="full"><label>Observações</label><textarea id="note"></textarea></div>
 </div>
 <div class="actions"><button class="primary" type="submit">Salvar atendimento</button><button class="secondary" type="button" onclick="clearForm()">Limpar</button></div>
@@ -66,16 +80,32 @@ const KEY='agenda_cidalia_mafra_v2';let data=JSON.parse(localStorage.getItem(KEY
 const iso=()=>new Date().toISOString().slice(0,10);function tm(){let d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10)}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function fmt(x){if(!x)return'';let[y,m,d]=x.split('-');return`${d}/${m}/${y}`}function persist(){localStorage.setItem(KEY,JSON.stringify(data));render()}
-function card(a){return`<div class="appt"><div><b>${esc(a.name)}</b><div class="muted">${fmt(a.date)} às ${a.time} • ${esc(a.procedure)}</div>${a.phone?`<div class="muted">📞 ${esc(a.phone)}</div>`:''}${a.returnDate?`<div class="muted">Próximo retorno: ${fmt(a.returnDate)}</div>`:''}${a.note?`<div class="muted">${esc(a.note)}</div>`:''}<span class="pill">${a.status==='Confirmado'?'✓ Confirmada':'⚠ '+a.status}</span></div><div class="actions"><button class="secondary" onclick="toggleConfirm('${a.id}')">${a.status==='Confirmado'?'Desconfirmar':'Confirmar'}</button><button class="danger" onclick="removeAppt('${a.id}')">Excluir</button></div></div>`}
+function card(a){return`<div class="appt"><div><b>${esc(a.name)}</b><div class="muted">${fmt(a.date)} às ${a.time} • ${esc(a.procedure)}</div>${a.phone?`<div class="muted">📞 ${esc(a.phone)}</div>`:''}${typeof a.price==='number'?`<div class="muted">💰 Total: ${money(a.price)} • Dona (30%): ${money(a.price*.30)} • Você (70%): ${money(a.price*.70)}</div>`:''}${a.returnDate?`<div class="muted">Próximo retorno: ${fmt(a.returnDate)}</div>`:''}${a.note?`<div class="muted">${esc(a.note)}</div>`:''}<span class="pill">${a.status==='Confirmado'?'✓ Confirmada':'⚠ '+a.status}</span> <span class="pill">${a.paymentStatus==='Recebido'?'💵 Recebido':'⏳ Pendente'}</span></div><div class="actions"><button class="secondary" onclick="toggleConfirm('${a.id}')">${a.status==='Confirmado'?'Desconfirmar':'Confirmar'}</button><button class="secondary" onclick="togglePayment('${a.id}')">${a.paymentStatus==='Recebido'?'Marcar pendente':'Marcar recebido'}</button><button class="danger" onclick="removeAppt('${a.id}')">Excluir</button></div></div>`}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function updateFinance(){
+ const day=document.getElementById('financeDate').value;
+ const month=document.getElementById('financeMonth').value;
+ let rows=data.filter(a=>a.paymentStatus==='Recebido' && Number(a.price)>0);
+ if(day) rows=rows.filter(a=>a.date===day);
+ else if(month) rows=rows.filter(a=>a.date.startsWith(month));
+ const total=rows.reduce((s,a)=>s+Number(a.price||0),0);
+ document.getElementById('finReceived').textContent=money(total);
+ document.getElementById('finOwner').textContent=money(total*.30);
+ document.getElementById('finYou').textContent=money(total*.70);
+ document.getElementById('finCount').textContent=`${rows.length} atendimento(s) recebido(s).`;
+}
+function setFinanceToday(){document.getElementById('financeDate').value=iso();document.getElementById('financeMonth').value='';updateFinance()}
+function clearFinance(){document.getElementById('financeDate').value='';document.getElementById('financeMonth').value='';updateFinance()}
+function togglePayment(id){let a=data.find(x=>x.id===id);if(a){a.paymentStatus=a.paymentStatus==='Recebido'?'Pendente':'Recebido';persist()}}
 function render(){
-let t=iso(),tom=tm(),q=(document.getElementById('search').value||'').toLowerCase(),up=data.filter(a=>a.date>=t).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+data.forEach(a=>{if(!a.paymentStatus)a.paymentStatus='Pendente'});let t=iso(),tom=tm(),q=(document.getElementById('search').value||'').toLowerCase(),up=data.filter(a=>a.date>=t).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 document.getElementById('countNext').textContent=up.length;document.getElementById('countTomorrow').textContent=data.filter(a=>a.date===tom).length;document.getElementById('countConfirm').textContent=data.filter(a=>a.date===tom&&a.status!=='Confirmado').length;
 let tomorrow=data.filter(a=>a.date===tom).sort((a,b)=>a.time.localeCompare(b.time));document.getElementById('tomorrow').innerHTML=tomorrow.length?tomorrow.map(card).join(''):'<div class="empty">Nenhum atendimento amanhã.</div>';
 let f=up.filter(a=>(a.name+' '+a.procedure).toLowerCase().includes(q));document.getElementById('list').innerHTML=f.length?f.map(card).join(''):'<div class="empty">Nenhum atendimento encontrado.</div>';
 let names=[...new Map(data.map(a=>[a.name.toLowerCase(),a])).values()].sort((a,b)=>a.name.localeCompare(b.name));document.getElementById('clients').innerHTML=names.length?names.map(a=>`<div class="appt"><div><b>${esc(a.name)}</b><div class="muted">${esc(a.phone||'Sem telefone')}</div></div><div class="muted">${data.filter(x=>x.name.toLowerCase()===a.name.toLowerCase()).length} atendimento(s)</div></div>`).join(''):'<div class="empty">Nenhuma cliente cadastrada.</div>';
-let hist=[...data].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));document.getElementById('history').innerHTML=hist.length?hist.map(card).join(''):'<div class="empty">Histórico vazio.</div>';
+let hist=[...data].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));document.getElementById('history').innerHTML=hist.length?hist.map(card).join(''):'<div class="empty">Histórico vazio.</div>';updateFinance();
 }
-document.getElementById('form').addEventListener('submit',e=>{e.preventDefault();data.push({id:Date.now().toString(),name:name.value.trim(),phone:phone.value.trim(),date:date.value,time:time.value,procedure:procedure.value,returnDate:returnDate.value,note:note.value.trim(),status:'Pendente'});persist();e.target.reset();date.value=iso()});
+document.getElementById('form').addEventListener('submit',e=>{e.preventDefault();data.push({id:Date.now().toString(),name:name.value.trim(),phone:phone.value.trim(),date:date.value,time:time.value,procedure:procedure.value,returnDate:returnDate.value,price:Number(price.value||0),note:note.value.trim(),status:'Pendente',paymentStatus:paymentStatus.value});persist();e.target.reset();date.value=iso()});
 function toggleConfirm(id){let a=data.find(x=>x.id===id);if(a){a.status=a.status==='Confirmado'?'Pendente':'Confirmado';persist()}}
 function removeAppt(id){if(confirm('Excluir este atendimento?')){data=data.filter(x=>x.id!==id);persist()}}
 function clearForm(){document.getElementById('form').reset();date.value=iso()}
