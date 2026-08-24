@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#8a7464">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Agenda Cidália">
+<link rel="manifest" href="manifest.json">
+<title>Agenda Cidália Mafra</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f3ef;color:#302b27}
+header{background:#8a7464;color:#fff;padding:22px 18px}header h1{margin:0;font-size:24px}header p{margin:4px 0 0;font-size:13px;opacity:.9}
+main{max-width:760px;margin:auto;padding:16px}.card{background:#fff;border:1px solid #e7dfd8;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 3px 14px #0000000a}
+h2{font-size:18px;margin:0 0 13px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.full{grid-column:1/-1}
+label{font-size:12px;font-weight:700;display:block;margin-bottom:6px}input,select,textarea{width:100%;padding:12px;border:1px solid #d9d0c8;border-radius:11px;font-size:16px;background:#fff;color:#302b27}
+textarea{min-height:70px;resize:vertical}button{border:0;border-radius:11px;padding:12px 15px;font-weight:700;font-size:14px;cursor:pointer}.primary{background:#8a7464;color:#fff}.secondary{background:#eee7e1;color:#302b27}.danger{background:#f6dfdc;color:#71342d}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:14px}.stat{padding:13px;border-radius:14px;background:#f4eee9}.stat b{display:block;font-size:23px}.muted{font-size:13px;color:#756d67}
+.appt{padding:13px 0;border-top:1px solid #eee6df;display:flex;justify-content:space-between;gap:10px}.appt:first-child{border-top:0}.pill{display:inline-block;margin-top:6px;padding:4px 8px;border-radius:99px;background:#eee7e1;font-size:11px;font-weight:700}.empty{text-align:center;padding:25px;color:#827a73}
+nav{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}nav button{background:#fff;border:1px solid #e3dcd5}
+.notice{padding:11px 12px;background:#f5eee8;border-radius:12px;font-size:13px;margin-bottom:12px}
+@media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.stats{grid-template-columns:1fr 1fr}.stat:last-child{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<header><h1>Agenda Cidália Mafra</h1><p>Estética Facial • Clientes & retornos</p></header>
+<main>
+<div class="notice">💾 Seus dados ficam salvos neste aparelho neste navegador. Faça backup periodicamente usando o botão abaixo.</div>
+<nav>
+<button onclick="showSection('agenda')">📅 Agenda</button>
+<button onclick="showSection('clientes')">👩 Clientes</button>
+<button onclick="showSection('historico')">📋 Histórico</button>
+</nav>
+
+<section id="agenda">
+<div class="stats">
+<div class="stat">Próximos<b id="countNext">0</b></div>
+<div class="stat">Amanhã<b id="countTomorrow">0</b></div>
+<div class="stat">A confirmar<b id="countConfirm">0</b></div>
+</div>
+<div class="card">
+<h2>➕ Novo atendimento</h2>
+<form id="form">
+<div class="grid">
+<div><label>Nome da cliente</label><input id="name" required></div>
+<div><label>Telefone</label><input id="phone" type="tel"></div>
+<div><label>Data</label><input id="date" type="date" required></div>
+<div><label>Horário</label><input id="time" type="time" required></div>
+<div><label>Procedimento</label><select id="procedure"><option>Limpeza de pele</option><option>Dermaplaning</option><option>Design de sobrancelhas</option><option>Design + henna</option><option>Lash lifting</option><option>Extensão de cílios</option><option>Spa de sobrancelhas</option><option>Outro</option></select></div>
+<div><label>Próximo retorno</label><input id="returnDate" type="date"></div>
+<div class="full"><label>Observações</label><textarea id="note"></textarea></div>
+</div>
+<div class="actions"><button class="primary" type="submit">Salvar atendimento</button><button class="secondary" type="button" onclick="clearForm()">Limpar</button></div>
+</form>
+</div>
+<div class="card"><h2>🔔 Confirmações de amanhã</h2><div id="tomorrow"></div></div>
+<div class="card"><h2>📅 Próximos atendimentos</h2><input id="search" placeholder="Buscar cliente ou procedimento..." oninput="render()"><div id="list"></div></div>
+<div class="card"><h2>💾 Segurança dos dados</h2><div class="actions"><button class="secondary" onclick="backup()">Exportar backup</button><button class="secondary" onclick="document.getElementById('restore').click()">Importar backup</button><input id="restore" type="file" accept=".json" hidden onchange="restore(event)"></div></div>
+</section>
+<section id="clientes" style="display:none"><div class="card"><h2>👩 Clientes cadastradas</h2><div id="clients"></div></div></section>
+<section id="historico" style="display:none"><div class="card"><h2>📋 Histórico de atendimentos</h2><div id="history"></div></div></section>
+</main>
+<script>
+const KEY='agenda_cidalia_mafra_v2';let data=JSON.parse(localStorage.getItem(KEY)||'[]');
+const iso=()=>new Date().toISOString().slice(0,10);function tm(){let d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10)}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function fmt(x){if(!x)return'';let[y,m,d]=x.split('-');return`${d}/${m}/${y}`}function persist(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function card(a){return`<div class="appt"><div><b>${esc(a.name)}</b><div class="muted">${fmt(a.date)} às ${a.time} • ${esc(a.procedure)}</div>${a.phone?`<div class="muted">📞 ${esc(a.phone)}</div>`:''}${a.returnDate?`<div class="muted">Próximo retorno: ${fmt(a.returnDate)}</div>`:''}${a.note?`<div class="muted">${esc(a.note)}</div>`:''}<span class="pill">${a.status==='Confirmado'?'✓ Confirmada':'⚠ '+a.status}</span></div><div class="actions"><button class="secondary" onclick="toggleConfirm('${a.id}')">${a.status==='Confirmado'?'Desconfirmar':'Confirmar'}</button><button class="danger" onclick="removeAppt('${a.id}')">Excluir</button></div></div>`}
+function render(){
+let t=iso(),tom=tm(),q=(document.getElementById('search').value||'').toLowerCase(),up=data.filter(a=>a.date>=t).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+document.getElementById('countNext').textContent=up.length;document.getElementById('countTomorrow').textContent=data.filter(a=>a.date===tom).length;document.getElementById('countConfirm').textContent=data.filter(a=>a.date===tom&&a.status!=='Confirmado').length;
+let tomorrow=data.filter(a=>a.date===tom).sort((a,b)=>a.time.localeCompare(b.time));document.getElementById('tomorrow').innerHTML=tomorrow.length?tomorrow.map(card).join(''):'<div class="empty">Nenhum atendimento amanhã.</div>';
+let f=up.filter(a=>(a.name+' '+a.procedure).toLowerCase().includes(q));document.getElementById('list').innerHTML=f.length?f.map(card).join(''):'<div class="empty">Nenhum atendimento encontrado.</div>';
+let names=[...new Map(data.map(a=>[a.name.toLowerCase(),a])).values()].sort((a,b)=>a.name.localeCompare(b.name));document.getElementById('clients').innerHTML=names.length?names.map(a=>`<div class="appt"><div><b>${esc(a.name)}</b><div class="muted">${esc(a.phone||'Sem telefone')}</div></div><div class="muted">${data.filter(x=>x.name.toLowerCase()===a.name.toLowerCase()).length} atendimento(s)</div></div>`).join(''):'<div class="empty">Nenhuma cliente cadastrada.</div>';
+let hist=[...data].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));document.getElementById('history').innerHTML=hist.length?hist.map(card).join(''):'<div class="empty">Histórico vazio.</div>';
+}
+document.getElementById('form').addEventListener('submit',e=>{e.preventDefault();data.push({id:Date.now().toString(),name:name.value.trim(),phone:phone.value.trim(),date:date.value,time:time.value,procedure:procedure.value,returnDate:returnDate.value,note:note.value.trim(),status:'Pendente'});persist();e.target.reset();date.value=iso()});
+function toggleConfirm(id){let a=data.find(x=>x.id===id);if(a){a.status=a.status==='Confirmado'?'Pendente':'Confirmado';persist()}}
+function removeAppt(id){if(confirm('Excluir este atendimento?')){data=data.filter(x=>x.id!==id);persist()}}
+function clearForm(){document.getElementById('form').reset();date.value=iso()}
+function showSection(id){['agenda','clientes','historico'].forEach(x=>document.getElementById(x).style.display=x===id?'block':'none')}
+function backup(){let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='backup_agenda_cidalia.json';a.click();URL.revokeObjectURL(a.href)}
+function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!Array.isArray(x))throw 0;data=x;persist();alert('Backup restaurado com sucesso.')}catch{alert('Arquivo de backup inválido.')}};r.readAsText(f)}
+date.value=iso();render();
+if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body></html>
